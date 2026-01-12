@@ -40,18 +40,64 @@ const TimeTrackingModule: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const downloadFile = (filename: string, content: string) => {
+    const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const generateTabelContent = (emp: any) => {
+    const empAttendance = attendance[emp.id] || {};
+    let total = 0;
+    
+    let header = `ТАБЕЛЬ УЧЕТА РАБОЧЕГО ВРЕМЕНИ\n`;
+    header += `Предприятие: ООО "РК-ГРАНД"\n`;
+    header += `Период: Ноябрь 2023\n`;
+    header += `Сотрудник: ${emp.fullName}\n`;
+    header += `Должность: ${emp.position}\n\n`;
+    header += `День,Статус\n`;
+
+    let rows = "";
+    days.forEach(d => {
+      const status = empAttendance[d] || '8';
+      rows += `${d},${status}\n`;
+      if (status === '8') total += 8;
+    });
+
+    header += rows;
+    header += `\nИТОГО ОТРАБОТАНО ЧАСОВ: ${total}\n`;
+    header += `Подпись ответственного лица: ___________ / Волков С.А. /`;
+    
+    return header;
+  };
+
   const handleConfirmExport = async () => {
     if (selectedEmployees.length === 0) return;
     
     setIsModalOpen(false);
     setIsExporting(true);
     
-    // Simulate batch processing for each selected employee
+    // Process each selected employee
     for (const empId of selectedEmployees) {
       const emp = INITIAL_EMPLOYEES.find(e => e.id === empId);
       if (emp) {
         setExportProgress(`Генерация: ${emp.fullName}`);
-        await new Promise(resolve => setTimeout(resolve, 800)); // Simulate work per file
+        
+        // Generate content
+        const content = generateTabelContent(emp);
+        const fileName = `Tabel_2023_11_${emp.fullName.replace(/\s/g, '_')}.csv`;
+        
+        // Trigger actual download
+        downloadFile(fileName, content);
+        
+        // Small delay to prevent browser from blocking multiple simultaneous downloads
+        await new Promise(resolve => setTimeout(resolve, 500)); 
       }
     }
 
@@ -91,7 +137,7 @@ const TimeTrackingModule: React.FC = () => {
             onClick={startExportProcess}
             disabled={isExporting}
             className={`px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg active:scale-95 ${
-              isExporting ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20'
+              isExporting ? 'bg-slate-400 cursor-not-allowed opacity-70' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20'
             }`}
           >
             {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
@@ -107,7 +153,7 @@ const TimeTrackingModule: React.FC = () => {
           </div>
           <div>
             <span className="font-bold text-sm tracking-tight block">Пакетная выгрузка завершена!</span>
-            <p className="text-xs opacity-70">Сформировано индивидуальных табелей: {selectedEmployees.length}</p>
+            <p className="text-xs opacity-70">Файлы успешно сформированы и скачаны для {selectedEmployees.length} чел.</p>
           </div>
         </div>
       )}
@@ -198,8 +244,8 @@ const TimeTrackingModule: React.FC = () => {
              <Download size={28} />
            </div>
            <div>
-             <div className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">4</div>
-             <div className="text-[10px] text-slate-400 dark:text-slate-600 uppercase font-black tracking-widest mt-1">Отчета выгружено</div>
+             <div className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{selectedEmployees.length || 0}</div>
+             <div className="text-[10px] text-slate-400 dark:text-slate-600 uppercase font-black tracking-widest mt-1">К выгрузке</div>
            </div>
         </div>
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-6 transition-colors">
